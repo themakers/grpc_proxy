@@ -21,4 +21,26 @@ import (
 // are invoked. So decisions around authorization, monitoring etc. are better to be handled there.
 //
 // See the rather rich example.
-type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error)
+//type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error)
+
+type StreamDirector interface {
+	// Connect returns a connection to use for the given method,
+	// or an error if the call should not be handled.
+	//
+	// The provided context may be inspected for filtering on request
+	// metadata.
+	//
+	// Method is the gRPC request path, which is in the form "/service/method".
+	//
+	// The returned context is used as the basis for the outgoing connection.
+	Connect(ctx context.Context, method string) (context.Context, *grpc.ClientConn, error)
+
+	// Release is called when a connection is longer being used.  This is called
+	// once for every call to Connect that does not return an error.
+	//
+	// The provided context is the one returned from Connect.
+	//
+	// This can be used by the director to pool connections or close unused
+	// connections.
+	Release(ctx context.Context, conn *grpc.ClientConn)
+}
