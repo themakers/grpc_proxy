@@ -64,12 +64,17 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 		return grpc.Errorf(codes.Internal, "lowLevelServerStream not exists in context")
 	}
 	// We require that the director's returned context inherits from the serverStream.Context().
-	outgoingCtx, backendConn, err := s.director(serverStream.Context(), fullMethodName)
+	outgoingCtx, backendConn, err := s.director.Connect(serverStream.Context(), fullMethodName)
 	if err != nil {
 		return err
 	}
+	defer s.director.Release(outCtx, backendConn)
 
 	clientCtx, clientCancel := context.WithCancel(outgoingCtx)
+	defer clientCancel()
+	if _, ok := metadata.FromOutgoingContext(outCtx); !ok {
+		clientCtx = copyMetadata(clientCtx, outCtx)
+	}
 	// TODO(mwitkow): Add a `forwarded` header to metadata, https://en.wikipedia.org/wiki/X-Forwarded-For.
 	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName)
 	if err != nil {
@@ -159,4 +164,24 @@ func (s *handler) forwardServerToClient(src grpc.ServerStream, dst grpc.ClientSt
 		}
 	}()
 	return ret
+}
+
+// copyMetadata takes the new client (outgoing) context, a server (incoming)
+// context, and returns a new outgoing context which contains all the incoming
+// metadata.
+//
+// An additional X-Forwarded-For metadata entry is added or appended to with
+// the peer address from the server context. See https://en.wikipedia.org/wiki/X-Forwarded-For.
+func copyMetadata(ctx context.Context, serverCtx context.Context) context.Context {
+	source := "unknown"
+	if peer, ok := peer.FromContext(serverCtx); ok && peer.Addr != nil {
+		source = peer.Addr.String()
+	}
+	forwardMD := metadata.Pairs("X-Forwarded-For", source)
+
+	md, ok := metadata.FromIncomingContext(serverCtx)
+	if ok {
+		return metadata.NewOutgoingContext(ctx, metadata.Join(md, forwardMD))
+	}
+	return metadata.NewOutgoingContext(ctx, forwardMD)
 }
