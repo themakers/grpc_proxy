@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"io"
 
 	"golang.org/x/net/context"
@@ -68,12 +70,12 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 	if err != nil {
 		return err
 	}
-	defer s.director.Release(outCtx, backendConn)
+	defer s.director.Release(outgoingCtx, backendConn)
 
 	clientCtx, clientCancel := context.WithCancel(outgoingCtx)
 	defer clientCancel()
-	if _, ok := metadata.FromOutgoingContext(outCtx); !ok {
-		clientCtx = copyMetadata(clientCtx, outCtx)
+	if _, ok := metadata.FromOutgoingContext(outgoingCtx); !ok {
+		clientCtx = copyMetadata(clientCtx, outgoingCtx)
 	}
 	// TODO(mwitkow): Add a `forwarded` header to metadata, https://en.wikipedia.org/wiki/X-Forwarded-For.
 	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName)
