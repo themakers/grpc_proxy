@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"io"
+	"log"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -151,6 +152,7 @@ func (s *handler) forwardClientToServer(src grpc.ClientStream, dst grpc.ServerSt
 		f := &frame{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
+				log.Println("e1:", err)
 				ret <- err // this can be io.EOF which is happy case
 				break
 			}
@@ -169,6 +171,7 @@ func (s *handler) forwardClientToServer(src grpc.ClientStream, dst grpc.ServerSt
 				}
 			}
 			if err := dst.SendMsg(f); err != nil {
+				log.Println("e2:", err)
 				ret <- err
 				break
 			}
@@ -183,10 +186,12 @@ func (s *handler) forwardServerToClient(src grpc.ServerStream, dst grpc.ClientSt
 		f := &frame{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
+				log.Println("e3:", err)
 				ret <- err // this can be io.EOF which is happy case
 				break
 			}
 			if err := dst.SendMsg(f); err != nil {
+				log.Println("e4:", err)
 				ret <- err
 				break
 			}

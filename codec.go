@@ -1,11 +1,15 @@
 package grpc_proxy
 
 import (
-	"fmt"
 	"google.golang.org/grpc/encoding"
 
 	"github.com/golang/protobuf/proto"
 )
+
+// Replace default 'proto' codec with ours
+func HijackProtoCodec() {
+	encoding.RegisterCodec(Codec())
+}
 
 // Codec returns a proxying grpc.Codec with the default protobuf codec as parent.
 //
@@ -51,7 +55,7 @@ func (c *rawCodec) Unmarshal(data []byte, v interface{}) error {
 }
 
 func (c *rawCodec) Name() string {
-	return fmt.Sprintf("proxy>%s", c.parentCodec.Name())
+	return c.parentCodec.Name()
 }
 
 // protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
