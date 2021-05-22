@@ -2,7 +2,7 @@
 // See LICENSE for licensing terms.
 
 /*
-Package proxy provides a reverse proxy handler for gRPC.
+Package grpc_proxy provides a reverse proxy handler for gRPC.
 
 The implementation allows a `grpc.Server` to pass a received ServerStream to a ClientStream without understanding
 the semantics of the messages exchanged. It basically provides a transparent reverse-proxy.
@@ -12,4 +12,4 @@ to implement whatever logic of backend-picking, dialing and service verification
 
 See examples on documented functions.
 */
-package proxy
+package grpc_proxy

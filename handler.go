@@ -1,7 +1,7 @@
 // Copyright 2017 Michal Witkowski. All Rights Reserved.
 // See LICENSE for licensing terms.
 
-package proxy
+package grpc_proxy
 
 import (
 	"google.golang.org/grpc/metadata"
@@ -46,7 +46,7 @@ func RegisterService(server *grpc.Server, director StreamDirector, serviceName s
 // The indented use here is as a transparent proxy, where the server doesn't know about the services implemented by the
 // backends. It should be used as a `grpc.UnknownServiceHandler`.
 //
-// This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
+// This can *only* be used if the `server` also uses grpc_proxy.CodecForServer() ServerOption.
 func TransparentHandler(director StreamDirector) grpc.StreamHandler {
 	streamer := &handler{director}
 	return streamer.handler

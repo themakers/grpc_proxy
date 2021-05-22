@@ -1,7 +1,7 @@
 // Copyright 2017 Michal Witkowski. All Rights Reserved.
 // See LICENSE for licensing terms.
 
-package proxy_test
+package grpc_proxy_test
 
 import (
 	"io"
@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -24,7 +23,9 @@ import (
 
 	"fmt"
 
-	pb "github.com/mwitkow/grpc-proxy/testservice"
+	"github.com/themakers/grpc_proxy"
+
+	pb "github.com/themakers/grpc_proxy/testservice"
 )
 
 const (
@@ -102,7 +103,7 @@ type ProxyHappySuite struct {
 	serverListener   net.Listener
 	server           *grpc.Server
 	proxyListener    net.Listener
-	proxy            *grpc.Server
+	grpc_proxy       *grpc.Server
 	serverClientConn *grpc.ClientConn
 
 	client     *grpc.ClientConn
@@ -201,8 +202,8 @@ func (s *ProxyHappySuite) SetupSuite() {
 	s.server = grpc.NewServer()
 	pb.RegisterTestServiceServer(s.server, &assertingService{t: s.T()})
 
-	// Setup of the proxy's Director.
-	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithCodec(proxy.Codec()))
+	// Setup of the grpc_proxy's Director.
+	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithCodec(grpc_proxy.Codec()))
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
 	director := func(ctx context.Context, fullName string) (context.Context, *grpc.ClientConn, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
@@ -216,12 +217,12 @@ func (s *ProxyHappySuite) SetupSuite() {
 		outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
 		return outCtx, s.serverClientConn, nil
 	}
-	s.proxy = grpc.NewServer(
-		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
+	s.grpc_proxy = grpc.NewServer(
+		grpc.CustomCodec(grpc_proxy.Codec()),
+		grpc.UnknownServiceHandler(grpc_proxy.TransparentHandler(director)),
 	)
 	// Ping handler is handled as an explicit registration and not as a TransparentHandler.
-	proxy.RegisterService(s.proxy, director,
+	grpc_proxy.RegisterService(s.grpc_proxy, director,
 		"mwitkow.testproto.TestService",
 		"Ping")
 
@@ -232,7 +233,7 @@ func (s *ProxyHappySuite) SetupSuite() {
 	}()
 	s.T().Logf("starting grpc.Proxy at: %v", s.proxyListener.Addr().String())
 	go func() {
-		s.proxy.Serve(s.proxyListener)
+		s.grpc_proxy.Serve(s.proxyListener)
 	}()
 
 	clientConn, err := grpc.Dial(strings.Replace(s.proxyListener.Addr().String(), "127.0.0.1", "localhost", 1), grpc.WithInsecure(), grpc.WithTimeout(1*time.Second))
@@ -249,8 +250,8 @@ func (s *ProxyHappySuite) TearDownSuite() {
 	}
 	// Close all transports so the logs don't get spammy.
 	time.Sleep(10 * time.Millisecond)
-	if s.proxy != nil {
-		s.proxy.Stop()
+	if s.grpc_proxy != nil {
+		s.grpc_proxy.Stop()
 		s.proxyListener.Close()
 	}
 	if s.serverListener != nil {
