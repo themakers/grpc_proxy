@@ -20,11 +20,11 @@ var (
 	}
 )
 
-// RegisterService sets up a proxy handler for a particular gRPC service and method.
+// RegisterServiceMethods sets up a proxy handler for a particular gRPC service and method.
 // The behaviour is the same as if you were registering a handler method, e.g. from a codegenerated pb.go file.
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
-func RegisterService(server *grpc.Server, director StreamDirector, serviceName string, methodNames ...string) {
+func RegisterServiceMethods(server *grpc.Server, director StreamDirector, serviceName string, methodNames ...string) {
 	streamer := &handler{director}
 	fakeDesc := &grpc.ServiceDesc{
 		ServiceName: serviceName,
@@ -33,6 +33,33 @@ func RegisterService(server *grpc.Server, director StreamDirector, serviceName s
 	for _, m := range methodNames {
 		streamDesc := grpc.StreamDesc{
 			StreamName:    m,
+			Handler:       streamer.handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		}
+		fakeDesc.Streams = append(fakeDesc.Streams, streamDesc)
+	}
+	server.RegisterService(fakeDesc, streamer)
+}
+
+func RegisterService(server *grpc.Server, director StreamDirector, desc grpc.ServiceDesc) {
+	streamer := &handler{director}
+	fakeDesc := &grpc.ServiceDesc{
+		ServiceName: desc.ServiceName,
+		HandlerType: (*interface{})(nil),
+	}
+	for _, m := range desc.Methods {
+		streamDesc := grpc.StreamDesc{
+			StreamName:    m.MethodName,
+			Handler:       streamer.handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		}
+		fakeDesc.Streams = append(fakeDesc.Streams, streamDesc)
+	}
+	for _, m := range desc.Streams {
+		streamDesc := grpc.StreamDesc{
+			StreamName:    m.StreamName,
 			Handler:       streamer.handler,
 			ServerStreams: true,
 			ClientStreams: true,
